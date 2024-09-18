@@ -1,39 +1,68 @@
 #include<iostream>
-#include"SDL.h"
-#include"SDL_image.h"
-#include"SDL_mixer.h"
-#include"SDL_ttf.h"
+
+#include"MeSceneManager.h"
+#include"MeStartScene.h"
+#include"MeGameScene.h"
+#include"MeAudioPlayer.h"
+#include"MeUI.h"
+#include"MeRender.h"
 
 const int winWidth = 1280;
 const int winHeight = 720;
 
-void All_init();
-void All_destroy();
+int mouseX;
+int mouseY;
+Uint32 mouseState;
+
+void MeAllInit();
+void MeAllDestroy(SDL_Window* window, SDL_Renderer* renderer);
+
+MeUI setUI;
+MeSceneManager SceneManager;
+MeScene* StartScene = nullptr;
+MeScene* GameScene = nullptr;
+MeSceneManager scenemanager;
+MeAudioPlayer AudioPlayer;
 
 int main(int argc, char* argv[]) {
-	All_init();
+	MeAllInit();
 	bool WindowClose = false;
 	SDL_Window* Window = SDL_CreateWindow("MeNeed", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, winWidth, winHeight, SDL_WINDOW_BORDERLESS);
 	SDL_Renderer* renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED);
 
+	HWND hWnd = GetConsoleWindow();
+	ShowWindow(hWnd, SW_HIDE);
+
+	MeRender render;
+	StartScene = new MeStartScene();
+	GameScene = new MeGameScene();
+
+	setUI.loadUI("./Resource/Texture/UIwidget/UI.png" ,"./Resource/Texture/UIwidget/UI_Position.txt" ,renderer);
+	setUI.setBackground("./Resource/Texture/background/background.png", renderer, SDL_Rect{ 610,217,1280,720 });
+	StartScene->InitScene(renderer);
+	GameScene->InitScene(renderer);
+	SceneManager.SetCurrentScene(StartScene);
+	AudioPlayer.LoadMusicList(renderer);
+
 	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
 	SDL_Event event;
 	while (!WindowClose){
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
 				WindowClose = true;
+			setUI.eventUI(event);
+			SceneManager.SceneEvent(event);
+			AudioPlayer.SwitchPlay(event);
 		}
-		SDL_RenderClear(renderer);
 
-		SDL_RenderPresent(renderer);
+		render.AllRender(renderer);
 	}
 
-	All_destroy();
+	MeAllDestroy(Window,renderer);
 	return 0;
 }
-void All_init() {
+void MeAllInit() {
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
 		std::cerr << "Failed to Init SDL" << SDL_GetError() << std::endl;
 		exit(-1);
@@ -58,11 +87,15 @@ void All_init() {
 		exit(-1);
 	}
 }
-void All_destroy() {
-
-
+void MeAllDestroy(SDL_Window* window, SDL_Renderer* renderer) {
+	StartScene->SceneDestory(renderer);
+	GameScene->SceneDestory(renderer);
+	AudioPlayer.ListDestroy();
+	delete StartScene, GameScene;
 	IMG_Quit();
 	TTF_Quit();
 	Mix_Quit();
+	SDL_DestroyWindow(window);
+	SDL_DestroyRenderer(renderer);
 	SDL_Quit();
 }
